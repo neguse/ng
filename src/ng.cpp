@@ -81,7 +81,7 @@ static vec4 color256To1_0(const ngColor& col) {
   return vec4(col) * (1.f / 255.f);
 }
 
-static struct InputState {
+struct InputState {
   std::vector<uint8_t> key;
   std::vector<bool> mouse_button;
   ivec2 mouse_position;

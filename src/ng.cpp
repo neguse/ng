@@ -1,8 +1,16 @@
 #include "ng.h"
 
+#if defined(__EMSCRIPTEN__)
+#include <GLES3/gl3.h>
+#include <emscripten.h>
+#else
 #include <GL/gl3w.h>
+#endif
+
 #include <SDL2/SDL.h>
 #include <SDL2/SDL_image.h>
+
+#include <functional>
 //
 #include <ft2build.h>
 #include FT_FREETYPE_H
@@ -13,8 +21,66 @@
 #include <stdexcept>
 
 #include "utf8.h"
+//
+
+#define NG_VERIFY(x)                                                   \
+  if (!x) {                                                            \
+    printf("failed NG_VERIFY %s at %s(%d)\n", #x, __FILE__, __LINE__); \
+  }
 
 namespace {
+
+class TickCounter {
+ public:
+  static const uint32_t kTickCounterInterval = 512;
+
+ private:
+  std::vector<uint32_t> tick_times;
+  uint32_t tick_times_index;
+
+ public:
+  void Reset() {
+    tick_times.clear();
+    tick_times_index = 0;
+  }
+  uint32_t PrevTick() {
+    uint32_t prev_index =
+        (kTickCounterInterval + tick_times_index - 1) % kTickCounterInterval;
+    return tick_times[prev_index];
+  }
+  uint32_t MostOldTick() {
+    uint32_t old_index = (tick_times_index + 1) % kTickCounterInterval;
+    return tick_times[old_index];
+  }
+  uint32_t NowTick() { return tick_times[tick_times_index]; }
+  bool IsLogEnough() { return tick_times.size() == kTickCounterInterval; }
+  void Remember() {
+    uint32_t now = SDL_GetTicks();
+    if (!IsLogEnough()) {
+      tick_times.push_back(now);
+      tick_times_index = tick_times.size() - 1;
+      return;
+    }
+    tick_times_index = (tick_times_index + 1) % kTickCounterInterval;
+    tick_times[tick_times_index] = now;
+  }
+  float FPS() {
+    if (!IsLogEnough()) {
+      return 0.f;
+    } else {
+      uint32_t old = MostOldTick();
+      uint32_t now = NowTick();
+      return kTickCounterInterval * 1000.f / float(now - old);
+    }
+  }
+  uint32_t ElapsedTickMsec() {
+    if (tick_times.size() < 2) {
+      return 0;
+    } else {
+      return NowTick() - PrevTick();
+    }
+  }
+};
 
 bool CompileShader(const char* code, GLenum type, GLuint* out_shader_id) {
   GLuint shader_id = glCreateShader(type);
@@ -58,7 +124,7 @@ bool CompileShaderProgram(const char* vertex_shader_code,
   int log_length;
   glGetProgramiv(program_id, GL_LINK_STATUS, &result);
   glGetProgramiv(program_id, GL_INFO_LOG_LENGTH, &log_length);
-  if (log_length > 0) {
+  if (result != GL_TRUE) {
     std::vector<char> error_msg(log_length);
     glGetProgramInfoLog(program_id, log_length, NULL, &error_msg[0]);
     fprintf(stderr, "%s\n", &error_msg[0]);
@@ -153,10 +219,16 @@ class ngProcessImpl : public ngProcess {
   FT_Face face_;
   FT_GlyphSlot slot_;
 
+  TickCounter tick_counter_;
+
+  ngUpdater updater_;
+
+  bool exit_;
+
  public:
   virtual ~ngProcessImpl();
   bool Init() override;
-  void Run(const ngUpdater& updater) override;
+  void Run(ngUpdater updater) override;
   void ExitLoop() override;
   void Push(const mat3& mat) override;
 
@@ -370,8 +442,7 @@ class ngProcessImpl : public ngProcess {
     return ngCoord(current_state_.mouse_position);
   }
 
- private:
-  bool exit_;
+  void Tick();
 };
 
 ngProcessImpl::~ngProcessImpl() {
@@ -384,7 +455,7 @@ ngProcessImpl::~ngProcessImpl() {
 bool ngProcessImpl::Init() {
   exit_ = false;
 
-  if (SDL_Init(SDL_INIT_EVERYTHING) != 0) {
+  if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_EVENTS | SDL_INIT_AUDIO) != 0) {
     fprintf(stderr, "ERROR: %s\n", SDL_GetError());
     return false;
   }
@@ -397,17 +468,26 @@ bool ngProcessImpl::Init() {
 
   window_size_ = vec2(320, 240);
 
-  // GL 3.0 + GLSL 130
-  const char* glsl_version = "#version 130";
-  SDL_GL_SetAttribute(SDL_GL_CONTEXT_FLAGS, 0);
-  SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_CORE);
-  SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 3);
-  SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 0);
+#if defined(__EMSCRIPTEN__)
+#define SHADER_HEADER "#version 300 es"
+  NG_VERIFY(!SDL_GL_SetAttribute(SDL_GL_CONTEXT_FLAGS, 0));
+  NG_VERIFY(!SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK,
+                                 SDL_GL_CONTEXT_PROFILE_ES));
+  NG_VERIFY(!SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 3));
+  NG_VERIFY(!SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 0));
+#else
+#define SHADER_HEADER "#version 330 core"
+  NG_VERIFY(!SDL_GL_SetAttribute(SDL_GL_CONTEXT_FLAGS, 0));
+  NG_VERIFY(!SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK,
+                                 SDL_GL_CONTEXT_PROFILE_CORE));
+  NG_VERIFY(!SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 3));
+  NG_VERIFY(!SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 3));
+#endif
 
   // Create window with graphics context
-  SDL_GL_SetAttribute(SDL_GL_DOUBLEBUFFER, 1);
-  SDL_GL_SetAttribute(SDL_GL_DEPTH_SIZE, 24);
-  SDL_GL_SetAttribute(SDL_GL_STENCIL_SIZE, 8);
+  NG_VERIFY(!SDL_GL_SetAttribute(SDL_GL_DOUBLEBUFFER, 1));
+  NG_VERIFY(!SDL_GL_SetAttribute(SDL_GL_DEPTH_SIZE, 24));
+  NG_VERIFY(!SDL_GL_SetAttribute(SDL_GL_STENCIL_SIZE, 8));
   SDL_WindowFlags window_flags = (SDL_WindowFlags)(
       SDL_WINDOW_OPENGL | SDL_WINDOW_RESIZABLE | SDL_WINDOW_ALLOW_HIGHDPI);
   window_ =
@@ -417,18 +497,17 @@ bool ngProcessImpl::Init() {
   SDL_GL_MakeCurrent(window_, gl_context_);
   SDL_GL_SetSwapInterval(1);  // Enable vsync
 
-  if (gl3wInit() != 0) {
-    fprintf(stderr, "Failed to initialize OpenGL loader!\n");
-    return 1;
-  }
+#if !defined(__EMSCRIPTEN__)
+  NG_VERIFY(!gl3wInit());
+#endif
 
   // create VAO
   glGenVertexArrays(1, &vao_id_);
   glBindVertexArray(vao_id_);
 
   // create primitive shader
-  const char* PRIMITIVE_VERTEX_SHADER_CODE = R"(
-#version 330 core
+  const char* PRIMITIVE_VERTEX_SHADER_CODE = SHADER_HEADER R"(
+precision mediump float;
 layout(location = 0) in vec2 in_position;
 uniform mat3 u_matrix;
 void main(){
@@ -436,8 +515,8 @@ void main(){
 	gl_Position =  vec4(pos, 1);
 }
 )";
-  const char* PRIMITIVE_FRAGMENT_SHADER_CODE = R"(
-#version 330 core
+  const char* PRIMITIVE_FRAGMENT_SHADER_CODE = SHADER_HEADER R"(
+precision mediump float;
 uniform vec4 u_color;
 out vec4 out_color;
 void main(){
@@ -456,8 +535,8 @@ void main(){
       glGetUniformLocation(primitive_program_id_, "u_color");
 
   // create textured shader
-  const char* TEXTURED_VERTEX_SHADER_CODE = R"(
-#version 330 core
+  const char* TEXTURED_VERTEX_SHADER_CODE = SHADER_HEADER R"(
+precision mediump float;
 layout(location = 0) in vec2 in_position;
 layout(location = 1) in vec2 in_uv;
 out vec2 uv;
@@ -468,8 +547,8 @@ void main(){
   uv = in_uv;
 }
 )";
-  const char* TEXTURED_FRAGMENT_SHADER_CODE = R"(
-#version 330 core
+  const char* TEXTURED_FRAGMENT_SHADER_CODE = SHADER_HEADER R"(
+precision mediump float;
 in vec2 uv;
 out vec4 out_color;
 uniform vec4 u_color;
@@ -479,6 +558,7 @@ void main(){
   out_color = vec4(0, 0, 0, a);
 }
 )";
+#undef SHADER_HEADER
 
   if (!CompileShaderProgram(TEXTURED_VERTEX_SHADER_CODE,
                             TEXTURED_FRAGMENT_SHADER_CODE,
@@ -538,68 +618,37 @@ void main(){
     return false;
   }
 
-  if (FT_New_Face(library_, "NotoSansJP-Regular.otf", 0, &face_) != 0) {
-    fprintf(stderr, "failed to FT_New_Face\n");
-    return false;
-  }
+  // if (FT_New_Face(library_, "NotoSansJP-Regular.otf", 0, &face_) != 0) {
+  //  fprintf(stderr, "failed to FT_New_Face\n");
+  //  return false;
+  //}
 
-  if (FT_Set_Pixel_Sizes(face_, 0, 64) != 0) {
-    fprintf(stderr, "failed to FT_Set_Pixel_Sizes\n");
-    return false;
-  }
+  // if (FT_Set_Pixel_Sizes(face_, 0, 64) != 0) {
+  //  fprintf(stderr, "failed to FT_Set_Pixel_Sizes\n");
+  //  return false;
+  //}
+
+  tick_counter_.Reset();
 
   return true;
 }
 
-void ngProcessImpl::Run(const ngUpdater& updater) {
-  uint32_t now_msec, prev_msec;
-  now_msec = SDL_GetTicks();
-  uint32_t frame_count = 0;
-  uint32_t frame_count_tick = now_msec;
-  uint32_t fps = 0;
+#if defined(__EMSCRIPTEN__)
+void esMainLoop(void* arg) {
+  auto* proc = reinterpret_cast<ngProcessImpl*>(arg);
+  proc->Tick();
+}
+#endif
 
+void ngProcessImpl::Run(ngUpdater updater) {
+  updater_ = updater;
+#if defined(__EMSCRIPTEN__)
+  emscripten_set_main_loop_arg(esMainLoop, this, 0, true);
+#else
   while (!exit_) {
-    prev_msec = now_msec;
-    now_msec = SDL_GetTicks();
-    frame_count++;
-    if (frame_count == 300) {
-      fps = 300.f * 1000.f / (now_msec - frame_count_tick);
-      frame_count = 0;
-      frame_count_tick = now_msec;
-      std::string title = fmt::format("ng fps:{0}", fps);
-      SDL_SetWindowTitle(window_, title.c_str());
-    }
-
-    // process all event
-    SDL_Event event;
-    while (SDL_PollEvent(&event)) {
-      switch (event.type) {
-        case SDL_QUIT: {
-          exit_ = true;
-          break;
-        }
-        case SDL_WINDOWEVENT: {
-          if (event.window.event == SDL_WINDOWEVENT_CLOSE &&
-              event.window.windowID == SDL_GetWindowID(window_)) {
-            exit_ = true;
-          }
-          break;
-        }
-      }
-    }
-
-    // input
-    prev_state_ = current_state_;
-    current_state_ = GetInput();
-
-    trans_stack_.clear();
-    trans_stack_.push_back(
-        scale(mat3(1.f), vec2(1.f / window_size_.x, 1.f / window_size_.y)));
-    glViewport(0, 0, window_size_.x, window_size_.y);
-    // update game
-    updater(*this, (float)(now_msec - prev_msec) * 0.001f);
-    SDL_GL_SwapWindow(window_);
+    Tick();
   }
+#endif
 }
 
 void ngProcessImpl::ExitLoop() { exit_ = true; }
@@ -609,6 +658,47 @@ void ngProcessImpl::Push(const mat3& mat) {
 }
 
 void ngProcessImpl::Pop() { trans_stack_.pop_back(); }
+
+void ngProcessImpl::Tick() {
+  // update tick counter
+  tick_counter_.Remember();
+  if (tick_counter_.IsLogEnough()) {
+    std::string title = fmt::format("ng fps:{0}", tick_counter_.FPS());
+    SDL_SetWindowTitle(window_, title.c_str());
+  }
+
+  // process all event
+  SDL_Event event;
+  while (SDL_PollEvent(&event)) {
+    switch (event.type) {
+      case SDL_QUIT: {
+        exit_ = true;
+        break;
+      }
+      case SDL_WINDOWEVENT: {
+        if (event.window.event == SDL_WINDOWEVENT_CLOSE &&
+            event.window.windowID == SDL_GetWindowID(window_)) {
+          exit_ = true;
+        }
+        break;
+      }
+    }
+  }
+
+  // input
+  prev_state_ = current_state_;
+  current_state_ = GetInput();
+
+  // initialize matrix
+  trans_stack_.clear();
+  trans_stack_.push_back(
+      scale(mat3(1.f), vec2(1.f / window_size_.x, 1.f / window_size_.y)));
+  glViewport(0, 0, window_size_.x, window_size_.y);
+
+  // update game
+  updater_(*this, (float)(tick_counter_.ElapsedTickMsec()) * 0.001f);
+  SDL_GL_SwapWindow(window_);
+}
 
 std::unique_ptr<ngProcess> ngProcess::NewProcess() {
   return std::make_unique<ngProcessImpl>();

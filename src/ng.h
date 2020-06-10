@@ -28,7 +28,7 @@ class ngProcess {
   static std::unique_ptr<ngProcess> NewProcess();
 
   virtual bool Init() = 0;
-  virtual void Run(const ngUpdater& updater) = 0;
+  virtual void Run(ngUpdater updater) = 0;
   virtual void ExitLoop() = 0;
 
   // rendering methods

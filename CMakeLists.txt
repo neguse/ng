@@ -16,15 +16,22 @@ find_package(fmt CONFIG REQUIRED)
 find_package(gl3w CONFIG REQUIRED)
 find_package(freetype CONFIG REQUIRED)
 
-file(GLOB_RECURSE sources "src/*.cpp")
+file(GLOB_RECURSE sources "src/*.cpp" "src/*.c")
 add_executable(ng ${sources})
 
-target_include_directories(ng PUBLIC "include")
+if (EMSCRIPTEN)
+    set(CMAKE_EXECUTABLE_SUFFIX ".html")
+    set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -s MAX_WEBGL_VERSION=2 -s MIN_WEBGL_VERSION=2")
+else()
+    target_link_libraries(ng PRIVATE unofficial::gl3w::gl3w)
+endif()
+
+
+target_include_directories(ng PUBLIC "include" "src")
 target_link_libraries(ng PRIVATE glm)
 target_link_libraries(ng PRIVATE SDL2::SDL2main SDL2::SDL2-static)
 target_link_libraries(ng PRIVATE SDL2::SDL2_image)
 target_link_libraries(ng PRIVATE fmt::fmt fmt::fmt-header-only)
-target_link_libraries(ng PRIVATE unofficial::gl3w::gl3w)
 target_link_libraries(ng PRIVATE freetype)
 
 set(CPACK_PROJECT_NAME ${PROJECT_NAME})

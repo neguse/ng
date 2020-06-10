@@ -62,7 +62,7 @@ int main(void) {
     p.Circle(translucent_red, translucent_red, {0, 0}, l);
     auto txt = fmt::format(u8"pos({0},{1}) btn({2})", p.CursorPos().x,
                            p.CursorPos().y, button_press_count);
-    p.Text(black, {-320, 0}, 30, txt.c_str());
+    // p.Text(black, {-320, 0}, 30, txt.c_str());
     p.Square(white, white, pos, 10);
   });
 }

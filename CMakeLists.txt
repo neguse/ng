@@ -16,7 +16,7 @@ find_package(fmt CONFIG REQUIRED)
 find_package(gl3w CONFIG REQUIRED)
 find_package(freetype CONFIG REQUIRED)
 
-file(GLOB_RECURSE sources "src/*.cpp" "src/*.c")
+file(GLOB_RECURSE sources "src/*.cpp")
 add_executable(ng ${sources})
 
 if (EMSCRIPTEN)

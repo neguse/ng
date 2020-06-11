@@ -341,14 +341,13 @@ class ngProcessImpl : public ngProcess {
         }
 
         glBindTexture(GL_TEXTURE_2D, text_texture_id_);
-        glTexImage2D(GL_TEXTURE_2D, 0, GL_ALPHA, 64, 64, 0, GL_ALPHA,
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_R8, 64, 64, 0, GL_RED,
                      GL_UNSIGNED_BYTE, &pixels[0]);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER,
-                        GL_LINEAR_MIPMAP_LINEAR);
-        glGenerateMipmap(GL_TEXTURE_2D);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+        // glGenerateMipmap(GL_TEXTURE_2D);
 
         Push(ngMath::TRS(pos, 0.f, {length / 64, length / 64}));
         glUseProgram(textured_program_id_);
@@ -494,8 +493,8 @@ bool ngProcessImpl::Init() {
       SDL_CreateWindow("ng", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,
                        (int)window_size_.x, (int)window_size_.y, window_flags);
   SDL_GLContext gl_context_ = SDL_GL_CreateContext(window_);
-  SDL_GL_MakeCurrent(window_, gl_context_);
-  SDL_GL_SetSwapInterval(1);  // Enable vsync
+  NG_VERIFY(!SDL_GL_MakeCurrent(window_, gl_context_));
+  NG_VERIFY(!SDL_GL_SetSwapInterval(1));  // Enable vsync
 
 #if !defined(__EMSCRIPTEN__)
   NG_VERIFY(!gl3wInit());
@@ -543,7 +542,7 @@ out vec2 uv;
 uniform mat3 u_matrix;
 void main(){
   vec3 pos = u_matrix * vec3(in_position, 1);
-	gl_Position =  vec4(pos, 1);
+	gl_Position = vec4(pos, 1);
   uv = in_uv;
 }
 )";
@@ -554,8 +553,8 @@ out vec4 out_color;
 uniform vec4 u_color;
 uniform sampler2D u_texture;
 void main(){
-  float a = texture( u_texture, uv ).a;
-  out_color = vec4(0, 0, 0, a);
+  float a = texture(u_texture, uv).r;
+  out_color = vec4(u_color.rgb, u_color.a * a);
 }
 )";
 #undef SHADER_HEADER
@@ -597,13 +596,6 @@ void main(){
   glGenBuffers(1, &text_vertex_buffer_id_);
   glGenBuffers(1, &text_uv_buffer_id_);
   glGenTextures(1, &text_texture_id_);
-  glBindTexture(GL_TEXTURE_2D, text_texture_id_);
-  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
-  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
-  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER,
-                  GL_LINEAR_MIPMAP_LINEAR);
-  glGenerateMipmap(GL_TEXTURE_2D);
 
   // glEnable(GL_DEPTH_TEST);
   // glDepthFunc(GL_LESS);
@@ -618,15 +610,16 @@ void main(){
     return false;
   }
 
-  // if (FT_New_Face(library_, "NotoSansJP-Regular.otf", 0, &face_) != 0) {
-  //  fprintf(stderr, "failed to FT_New_Face\n");
-  //  return false;
-  //}
+  const char* kFontFilePath = "asset/font/NotoSansJP-Regular.otf";
+  if (FT_New_Face(library_, kFontFilePath, 0, &face_) != 0) {
+    fprintf(stderr, "failed to FT_New_Face\n");
+    return false;
+  }
 
-  // if (FT_Set_Pixel_Sizes(face_, 0, 64) != 0) {
-  //  fprintf(stderr, "failed to FT_Set_Pixel_Sizes\n");
-  //  return false;
-  //}
+  if (FT_Set_Pixel_Sizes(face_, 0, 64) != 0) {
+    fprintf(stderr, "failed to FT_Set_Pixel_Sizes\n");
+    return false;
+  }
 
   tick_counter_.Reset();
 

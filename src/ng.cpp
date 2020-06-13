@@ -1,4 +1,4 @@
-#include "ng.h"
+﻿#include "ng.h"
 
 #if defined(__EMSCRIPTEN__)
 #include <GLES3/gl3.h>
@@ -656,8 +656,8 @@ void ngProcessImpl::Tick() {
   // update tick counter
   tick_counter_.Remember();
   if (tick_counter_.IsLogEnough()) {
-    std::string title = fmt::format("ng fps:{0}", tick_counter_.FPS());
-    SDL_SetWindowTitle(window_, title.c_str());
+    // std::string title = fmt::format("ng fps:{0}", tick_counter_.FPS());
+    // SDL_SetWindowTitle(window_, title.c_str());
   }
 
   // process all event

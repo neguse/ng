@@ -60,7 +60,7 @@ int main(void) {
     p.Line(black, {0, 0}, vec2(cos(x), sin(x)) * 100.f);
     float l = 100.f + cos(x) * 100.f;
     p.Circle(translucent_red, translucent_red, {0, 0}, l);
-    auto txt = fmt::format(u8"あぁ～pos({0},{1}) btn({2})", p.CursorPos().x,
+    auto txt = fmt::format(u8"あぁ�E�pos({0},{1}) btn({2})", p.CursorPos().x,
                            p.CursorPos().y, button_press_count);
     p.Text(black, {-320, 0}, 30, txt.c_str());
     p.Square(white, white, pos, 10);

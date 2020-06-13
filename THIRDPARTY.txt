@@ -1,4 +1,4 @@
-# [SDL2](www.libsdl.org/)
+﻿# [SDL2](www.libsdl.org/)
 
 ```
 This software is provided 'as-is', without any express or implied
@@ -157,7 +157,7 @@ Introduction
   encourage you to use the following text:
 
    """
-    Portions of this software are copyright ﾂｩ <year> The FreeType
+    Portions of this software are copyright �E�ｩ <year> The FreeType
     Project (www.freetype.org).  All rights reserved.
    """
 

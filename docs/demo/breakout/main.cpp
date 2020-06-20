@@ -9,25 +9,6 @@ enum {
   KEY_2,
 };
 
-struct Rect {
-  vec2 pos;
-  vec2 size;
-
-  float Left() const { return pos.x - size.x; }
-  float Right() const { return pos.x + size.x; }
-  float Bottom() const { return pos.y - size.y; }
-  float Top() const { return pos.y + size.y; }
-};
-
-static bool IsCollideRect(const Rect& r1, const Rect& r2) {
-  if (r1.Right() > r2.Left() && r1.Left() < r2.Right()) {
-    if (r1.Top() > r2.Bottom() && r1.Bottom() < r2.Top()) {
-      return true;
-    }
-  }
-  return false;
-}
-
 // (320, 240) ~ (-320, -240)
 static const vec2 WindowSize = {320, 240};
 
@@ -46,11 +27,11 @@ int main(void) {
     return 1;
   }
 
-  std::vector<Rect> blocks;
+  std::vector<ngRect> blocks;
   for (int x = 0; x < 8; x++) {
     for (int y = 0; y < 4; y++) {
-      blocks.push_back(
-          Rect{{x * (WindowSize.x / 4) - WindowSize.x + 40, y * 60}, {20, 10}});
+      blocks.push_back(ngRect{
+          {x * (WindowSize.x / 4) - WindowSize.x + 40, y * 60}, {20, 10}});
     }
   }
 
@@ -63,8 +44,8 @@ int main(void) {
 
   State state = State::Title;
 
-  Rect mybar{{0, -200}, {100, 30}};
-  Rect myball{{0, 0}, {10, 10}};
+  ngRect mybar{{0, -200}, {100, 30}};
+  ngRect myball{{0, 0}, {10, 10}};
   vec2 myballVelo{240, 240};
   int balls = 3;
   int score = 0;
@@ -80,11 +61,11 @@ int main(void) {
     if (p.IsHold(KEY_RIGHT)) {
       mybar.pos.x += velocity * dt;
     }
-    if (mybar.Left() < -320) {
-      mybar.pos.x = -320 + mybar.size.x;
+    if (mybar.Left() < -WindowSize.x) {
+      mybar.AlignX(-WindowSize.x, ngAlignX::LEFT);
     }
-    if (mybar.Right() > 320.f) {
-      mybar.pos.x = 320 - mybar.size.x;
+    if (mybar.Right() > WindowSize.x) {
+      mybar.AlignX(WindowSize.x, ngAlignX::RIGHT);
     }
 
     // move myball
@@ -94,15 +75,15 @@ int main(void) {
       myball.pos += myballVelo * dt;
       // reflect myball
       if (myball.Right() > WindowSize.x) {
-        myball.pos.x = WindowSize.x - myball.size.x;
+        myball.AlignX(WindowSize.x, ngAlignX::RIGHT);
         myballVelo.x = -myballVelo.x;
       }
       if (myball.Left() < -WindowSize.x) {
-        myball.pos.x = -WindowSize.x + myball.size.x;
+        myball.AlignX(-WindowSize.x, ngAlignX::LEFT);
         myballVelo.x = -myballVelo.x;
       }
       if (myball.Top() > WindowSize.y) {
-        myball.pos.y = WindowSize.y - myball.size.y;
+        myball.AlignY(WindowSize.y, ngAlignY::TOP);
         myballVelo.y = -myballVelo.y;
       }
       if (myball.Bottom() < -WindowSize.y) {
@@ -113,7 +94,7 @@ int main(void) {
           state = State::GameOver;
         }
       }
-      if (IsCollideRect(myball, mybar) && myballVelo.y < 0) {
+      if (ngMath::IsCollideRect(myball, mybar) && myballVelo.y < 0) {
         myballVelo.y = abs(myballVelo.y);
       }
     }
@@ -130,8 +111,8 @@ int main(void) {
     // collide with myball & blocks
     int i = 0;
     while (i < blocks.size()) {
-      const Rect& r = blocks[i];
-      if (IsCollideRect(myball, r)) {
+      const ngRect& r = blocks[i];
+      if (ngMath::IsCollideRect(myball, r)) {
         vec2 diffPos = myball.pos - r.pos;
         vec2 sizeSum = myball.size + r.size;
         vec2 diffPosAbs = {abs(diffPos.x) / sizeSum.x,
@@ -179,7 +160,7 @@ int main(void) {
 
     if (state != State::Title) {
       // blocks
-      for (Rect& r : blocks) {
+      for (ngRect& r : blocks) {
         p.Rect(black, black, r.pos, r.size);
       }
     }

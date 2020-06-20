@@ -14,10 +14,65 @@ typedef uvec4 ngColor;
 typedef glm::vec2 ngCoord;
 typedef uint8_t ngKeyCode;
 
+enum class ngAlignX {
+  LEFT,
+  CENTER,
+  RIGHT,
+};
+
+enum class ngAlignY {
+  TOP,
+  CENTER,
+  BOTTOM,
+};
+
+struct ngRect {
+  vec2 pos;
+  vec2 size;
+
+  float Left() const { return pos.x - size.x; }
+  float Right() const { return pos.x + size.x; }
+  float Bottom() const { return pos.y - size.y; }
+  float Top() const { return pos.y + size.y; }
+  void AlignX(float x, ngAlignX align) {
+    switch (align) {
+      case ngAlignX::LEFT:
+        pos.x = x + size.x;
+        break;
+      case ngAlignX::CENTER:
+        pos.x = x;
+      case ngAlignX::RIGHT:
+        pos.x = x - size.x;
+        break;
+    }
+  }
+  void AlignY(float y, ngAlignY align) {
+    switch (align) {
+      case ngAlignY::TOP:
+        pos.y = y - size.y;
+        break;
+      case ngAlignY::CENTER:
+        pos.y = y;
+      case ngAlignY::BOTTOM:
+        pos.y = y + size.y;
+        break;
+    }
+  }
+};
+
 class ngMath {
  public:
   // TRS returns Translate * Rotate * Scale matrix.
   static mat3 TRS(vec2 pos, float rad, vec2 scale);
+
+  static bool IsCollideRect(const ngRect& r1, const ngRect& r2) {
+    if (r1.Right() > r2.Left() && r1.Left() < r2.Right()) {
+      if (r1.Top() > r2.Bottom() && r1.Bottom() < r2.Top()) {
+        return true;
+      }
+    }
+    return false;
+  }
 };
 
 class ngProcess;

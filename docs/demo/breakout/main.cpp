@@ -10,7 +10,7 @@ enum {
 };
 
 // (320, 240) ~ (-320, -240)
-static const vec2 WindowSize = {320, 240};
+static const vec2 kWindowSize = {320, 240};
 
 int main(void) {
   auto proc = ngProcess::NewProcess();
@@ -31,7 +31,7 @@ int main(void) {
   for (int x = 0; x < 8; x++) {
     for (int y = 0; y < 4; y++) {
       blocks.push_back(ngRect{
-          {x * (WindowSize.x / 4) - WindowSize.x + 40, y * 60}, {20, 10}});
+          {x * (kWindowSize.x / 4) - kWindowSize.x + 40, y * 60}, {20, 10}});
     }
   }
 
@@ -61,11 +61,11 @@ int main(void) {
     if (p.IsHold(KEY_RIGHT)) {
       mybar.pos.x += velocity * dt;
     }
-    if (mybar.Left() < -WindowSize.x) {
-      mybar.AlignX(-WindowSize.x, ngAlignX::LEFT);
+    if (mybar.Left() < -kWindowSize.x) {
+      mybar.AlignX(-kWindowSize.x, ngAlignX::LEFT);
     }
-    if (mybar.Right() > WindowSize.x) {
-      mybar.AlignX(WindowSize.x, ngAlignX::RIGHT);
+    if (mybar.Right() > kWindowSize.x) {
+      mybar.AlignX(kWindowSize.x, ngAlignX::RIGHT);
     }
 
     // move myball
@@ -74,19 +74,19 @@ int main(void) {
     } else if (state == State::AfterShoot) {
       myball.pos += myballVelo * dt;
       // reflect myball
-      if (myball.Right() > WindowSize.x) {
-        myball.AlignX(WindowSize.x, ngAlignX::RIGHT);
+      if (myball.Right() > kWindowSize.x) {
+        myball.AlignX(kWindowSize.x, ngAlignX::RIGHT);
         myballVelo.x = -myballVelo.x;
       }
-      if (myball.Left() < -WindowSize.x) {
-        myball.AlignX(-WindowSize.x, ngAlignX::LEFT);
+      if (myball.Left() < -kWindowSize.x) {
+        myball.AlignX(-kWindowSize.x, ngAlignX::LEFT);
         myballVelo.x = -myballVelo.x;
       }
-      if (myball.Top() > WindowSize.y) {
-        myball.AlignY(WindowSize.y, ngAlignY::TOP);
+      if (myball.Top() > kWindowSize.y) {
+        myball.AlignY(kWindowSize.y, ngAlignY::TOP);
         myballVelo.y = -myballVelo.y;
       }
-      if (myball.Bottom() < -WindowSize.y) {
+      if (myball.Bottom() < -kWindowSize.y) {
         if (balls > 0) {
           balls--;
           state = State::BeforeShoot;
@@ -155,7 +155,7 @@ int main(void) {
     // balls
     p.Text(black, {200, 220}, 30, fmt::format(u8"balls:{0}", balls).c_str());
     // score
-    p.Text(black, {-WindowSize.x, 220}, 30,
+    p.Text(black, {-kWindowSize.x, 220}, 30,
            fmt::format(u8"score:{0}", score).c_str());
 
     if (state != State::Title) {

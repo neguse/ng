@@ -1,5 +1,7 @@
 ﻿#pragma once
 
+#include <stdio.h>
+
 #include <glm/glm.hpp>
 #include <glm/gtc/constants.hpp>
 #include <glm/gtx/matrix_transform_2d.hpp>
@@ -13,6 +15,17 @@ using namespace glm;
 typedef uvec4 ngColor;
 typedef glm::vec2 ngCoord;
 typedef uint8_t ngKeyCode;
+
+#define NG_VERIFY(x)                                                   \
+  if (!x) {                                                            \
+    printf("failed NG_VERIFY %s at %s(%d)\n", #x, __FILE__, __LINE__); \
+  }
+
+#define NG_ASSERT(x)                                                   \
+  if (!x) {                                                            \
+    printf("failed NG_ASSERT %s at %s(%d)\n", #x, __FILE__, __LINE__); \
+    std::abort();                                                      \
+  }
 
 enum class ngAlignX {
   LEFT,
@@ -59,6 +72,36 @@ struct ngRect {
     }
   }
 };
+
+template <typename Cell>
+struct ngBoard {
+  ivec2 size;
+  std::vector<Cell> cells;
+  virtual void Init(ivec2 s, Cell init) {
+    size = s;
+    cells.resize(s.x * s.y, init);
+  }
+
+  virtual Cell GetAt(ivec2 pos) {
+    NG_ASSERT(IsInside(pos));
+    return cells[pos.x + pos.y * size.x];
+  }
+
+  virtual bool SetAt(ivec2 pos, const Cell& c) {
+    NG_ASSERT(IsInside(pos));
+    if (0 <= pos.x && pos.x < size.x) {
+      if (0 <= pos.y && pos.y < size.y) {
+        cells[pos.x + pos.y * size.x] = c;
+        return true;
+      }
+    }
+    return false;
+  };
+
+  virtual bool IsInside(ivec2 pos) {
+    return (0 <= pos.x && pos.x < size.x) && (0 <= pos.y && pos.y < size.y);
+  }
+};  // struct ngBoard<Cell>
 
 class ngMath {
  public:

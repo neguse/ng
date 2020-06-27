@@ -43,47 +43,24 @@ const bool kTetrimino[kTetriminoTypes][kTetriminoS] = {
     {0, 1, 1, 1, 0, 1, 0, 0},  // T
 };
 
-struct Board {
+struct Board : public ngBoard<Cell> {
   int minoType;
   int minoRot;
   ivec2 minoPos;
-  std::vector<Cell> cell;
 
-  void Init() {
-    cell.resize(kBoardSize.x * kBoardSize.y);
-    for (int x = 0; x < kBoardSize.x; x++) {
-      for (int y = 0; y < kBoardSize.y; y++) {
-        SetAt({x, y}, Cell::None);
-      }
-      // SetAt({x, 0}, Cell::Block);
-    }
-    for (int y = 0; y < kBoardSize.y; y++) {
-      // SetAt({0, y}, Cell::Block);
-      // SetAt({BoardSize.x - 1, y}, Cell::Block);
-    }
-
+  virtual void Init(ivec2 s, Cell c) override {
+    ngBoard<Cell>::Init(s, c);
     NextMino();
   }
-  Cell GetAt(ivec2 pos) {
-    if (0 <= pos.x && pos.x < kBoardSize.x) {
-      if (0 <= pos.y && pos.y < kBoardSize.y) {
-        return cell[pos.x + pos.y * kBoardSize.x];
-      }
-    }
-    if (pos.y >= kBoardSize.y) {
+
+  virtual Cell GetAt(ivec2 pos) override {
+    if (IsInside(pos)) {
+      return ngBoard<Cell>::GetAt(pos);
+    } else if (pos.y >= kBoardSize.y) {
       return Cell::None;
     } else {
       return Cell::Block;
     }
-  }
-  bool SetAt(ivec2 pos, Cell c) {
-    if (0 <= pos.x && pos.x < kBoardSize.x) {
-      if (0 <= pos.y && pos.y < kBoardSize.y) {
-        cell[pos.x + pos.y * kBoardSize.x] = c;
-        return true;
-      }
-    }
-    return false;
   }
 
   void RenderCell(ngProcess& p, ivec2 pos, Cell c) {
@@ -238,7 +215,7 @@ int main(void) {
   }
 
   Board b;
-  b.Init();
+  b.Init(kBoardSize, Cell::None);
   const float kTimeToDrop = 0.8;
   float timeToDrop = kTimeToDrop;
   int scores = 0;

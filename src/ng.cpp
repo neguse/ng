@@ -23,11 +23,6 @@
 #include "utf8.h"
 //
 
-#define NG_VERIFY(x)                                                   \
-  if (!x) {                                                            \
-    printf("failed NG_VERIFY %s at %s(%d)\n", #x, __FILE__, __LINE__); \
-  }
-
 namespace {
 
 class TickCounter {
@@ -345,8 +340,8 @@ class ngProcessImpl : public ngProcess {
                      GL_UNSIGNED_BYTE, &pixels[0]);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
         // glGenerateMipmap(GL_TEXTURE_2D);
 
         Push(ngMath::TRS(pos, 0.f, {length / 64, length / 64}));

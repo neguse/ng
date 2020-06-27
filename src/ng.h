@@ -12,6 +12,9 @@ using namespace glm;
 #include <functional>
 #include <memory>
 
+#include "splitmix64.h"
+#include "xoshiro256plusplus.h"
+
 typedef uvec4 ngColor;
 typedef glm::vec2 ngCoord;
 typedef uint8_t ngKeyCode;
@@ -37,6 +40,61 @@ enum class ngAlignY {
   TOP,
   CENTER,
   BOTTOM,
+};
+
+struct ngRand {
+ public:
+  ngRand();
+  void Seed(uint64_t seed);
+  uint64_t UInt64();
+  int Int();
+  // [0..n)
+  int IntN(int n);
+  // [min..max)
+  int Int1D(ivec2 minmax);
+  // [min..max)
+  ivec2 Int2D(ivec2 min, ivec2 max);
+  // [0..1)
+  float Float();
+  // [0..n)
+  float FloatN(float n);
+  // [min..max)
+  float Float1D(vec2 minmax);
+  // [min..max)
+  vec2 Float2D(vec2 min, vec2 max);
+
+ private:
+  splitmix64 smix64_;
+  xoshiro256plusplus xo_;
+};
+
+template <typename T>
+struct ngShuffledBuffer {
+ protected:
+  std::vector<T> buffer_;
+
+ public:
+  virtual void Fill() = 0;
+  void Shuffle(ngRand& rng) {
+    for (int i = buffer_.size() - 1; i > 0; i--) {
+      int n = rng.IntN(i);
+      // swap buffer_[i] and buffer_[n]
+      T tmp = buffer_[i];
+      buffer_[i] = buffer_[n];
+      buffer_[n] = tmp;
+    }
+  }
+  bool Empty() const { return buffer_.empty(); }
+  T Pop(ngRand& rng) {
+    if (Empty()) {
+      Fill();
+      NG_ASSERT(!Empty());
+      Shuffle(rng);
+    }
+    T v = buffer_.back();
+    buffer_.resize(buffer_.size() - 1);
+    return v;
+  }
 };
 
 struct ngRect {

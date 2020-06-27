@@ -9,103 +9,160 @@ enum {
   KEY_2,
 };
 
-// (320, 240) ~ (-320, -240)
-static const vec2 kWindowSize = {320, 240};
+const vec2 kWindowSize(320, 240);
 
-static const vec2 kCellSize = {18, 18};
-static const ivec2 kBoardSize = {10, 20};
+const ngColor kBlack(0x00, 0x00, 0x00, 0xff);
+const ngColor kWhite(0xff, 0xff, 0xff, 0xff);
+const ngColor kLightGray(0xde, 0xde, 0xde, 0xff);
+const ngColor kGray(0x80, 0x80, 0x80, 0xff);
+const ngColor kLightBlue(0xaf, 0xdf, 0xe4, 0xff);
+const ngColor kYellow(0xFF, 0xD4, 0x00, 0xff);
+const ngColor kGreen(0x00, 0x80, 0x00, 0xff);
+const ngColor kRed(0xED, 0x1A, 0x3D, 0xff);
+const ngColor kBlue(0x00, 0x67, 0xC0, 0xff);
+const ngColor kOrange(0xf3, 0x98, 0x00, 0xff);
+const ngColor kPurple(0xA7, 0x57, 0xA8, 0xff);
 
-ngColor kBlack(0x00, 0x00, 0x00, 0xff);
-ngColor kWhite(0xff, 0xff, 0xff, 0xff);
-ngColor kGray(0x80, 0x80, 0x80, 0xff);
-
-enum class Cell {
-  None,
-  Block,  // TODO Color
-};
-
-// 67
-// 45
-// 23
-// 01
-
-const int kTetriminoTypes = 7;
-
-const ivec2 kTetriminoXY = {2, 4};
-const int kTetriminoS = 8;
-const bool kTetrimino[kTetriminoTypes][kTetriminoS] = {
+const int kTetriminoPatternNum = 8;
+const int kTetriminoPatternX = 2;
+const int kTetriminoPatternY = 4;
+const int kTetriminoPatternS = kTetriminoPatternX * kTetriminoPatternY;
+const bool kTetriminoPattern[kTetriminoPatternNum][kTetriminoPatternS] = {
+    {0},                       // none
     {1, 0, 1, 0, 1, 0, 1, 0},  // I
-    {1, 1, 1, 1, 0, 0, 0, 0},  // O
-    {0, 1, 1, 1, 1, 0, 0, 0},  // S
-    {1, 0, 1, 1, 0, 1, 0, 0},  // Z
-    {1, 1, 0, 1, 0, 1, 0, 0},  // J
     {1, 1, 1, 0, 1, 0, 0, 0},  // L
-    {0, 1, 1, 1, 0, 1, 0, 0},  // T
+    {1, 1, 0, 1, 0, 1, 0, 0},  // J
+    {1, 1, 1, 1, 0, 0, 0, 0},  // O
+    {1, 0, 1, 1, 0, 1, 0, 0},  // S
+    {0, 1, 1, 1, 1, 0, 0, 0},  // Z
+    {1, 0, 1, 1, 1, 0, 0, 0},  // T
 };
 
+enum Cell {
+  None,
+  Block1,
+  Block2,
+  Block3,
+  Block4,
+  Block5,
+  Block6,
+  Block7,
+};
+
+struct MinoSelector : public ngShuffledBuffer<int> {
+  void Fill() override {
+    for (int i = 1; i < kTetriminoPatternNum; i++) {
+      buffer_.push_back(i);
+    }
+  }
+};
+
+const float kCellSize = 20.f;
+
+const ivec2 kBoardSize(10, 24);
 struct Board : public ngBoard<Cell> {
-  int minoType;
+  int minoPattern;
   int minoRot;
   ivec2 minoPos;
+  ngRand rng;
+  MinoSelector selector;
 
-  virtual void Init(ivec2 s, Cell c) override {
-    ngBoard<Cell>::Init(s, c);
+  virtual void Init(ivec2 s, Cell init) {
+    rng.Seed(0);
+    ngBoard<Cell>::Init(s, init);
     NextMino();
   }
 
   virtual Cell GetAt(ivec2 pos) override {
     if (IsInside(pos)) {
       return ngBoard<Cell>::GetAt(pos);
-    } else if (pos.y >= kBoardSize.y) {
+    }
+    if (pos.y >= size.y) {
       return Cell::None;
     } else {
-      return Cell::Block;
+      return Cell::Block1;
     }
   }
 
-  void RenderCell(ngProcess& p, ivec2 pos, Cell c) {
-    ngColor col;
-    switch (c) {
-      case Cell::Block:
-        col = kBlack;
-        break;
-      case Cell::None:
-        col = kGray;
-    }
+  void DrawBlock(ngProcess& p, ivec2 pos, Cell c) {
+    static const ngColor colors[] = {
+        kLightGray, kLightBlue, kOrange, kBlue, kYellow, kGreen, kRed, kPurple,
+    };
+    ngColor col = colors[c];
 
-    p.Rect(col, col, vec2{pos.x * (kCellSize.x + 2), pos.y * (kCellSize.y + 2)},
-           kCellSize * 0.5f);
+    p.Rect(col, col,
+           {-kWindowSize.x + (pos.x + 1) * kCellSize,
+            -kWindowSize.y + (pos.y + 1) * kCellSize},
+           {kCellSize / 2 - 1, kCellSize / 2 - 1});
   }
 
-  bool NextMino() {
-    minoPos = ivec2{kBoardSize.x / 2, kBoardSize.y - kTetriminoXY.y};
-    minoRot = 0;
-    minoType = rand() % kTetriminoTypes;
+  void Fix() {
+    for (int x = 0; x < kTetriminoPatternX; x++) {
+      for (int y = 0; y < kTetriminoPatternY; y++) {
+        if (kTetriminoPattern[minoPattern][y * kTetriminoPatternX + x]) {
+          SetAt(Rotated(ivec2{x, y}, minoRot) + minoPos, Cell(minoPattern));
+        }
+      }
+    }
+  }
 
-    if (MinoCollision()) {
+  bool Move(ivec2 delta) {
+    ivec2 nextPos = minoPos + delta;
+    if (IsCollision(minoPattern, minoRot, nextPos)) {
       return false;
     }
+    minoPos = nextPos;
+    return true;
+  }
+  bool Rot(int delta) {
+    int nextRot = (minoRot + delta + 4) % 4;
+    if (IsCollision(minoPattern, nextRot, minoPos)) {
+      return false;
+    }
+    minoRot = nextRot;
     return true;
   }
 
+  // return false if gameover.
+  bool NextMino() {
+    minoPattern = selector.Pop(rng);
+    minoRot = 0;
+    minoPos = {4, 20};
+    return !(IsCollision(minoPattern, minoRot, minoPos));
+  }
+
+  bool IsCollision(int pat, int rot, ivec2 pos) {
+    for (int x = 0; x < kTetriminoPatternX; x++) {
+      for (int y = 0; y < kTetriminoPatternY; y++) {
+        if (kTetriminoPattern[pat][y * kTetriminoPatternX + x]) {
+          if (GetAt(Rotated(ivec2{x, y}, rot) + pos) != Cell::None) {
+            return true;
+          }
+        }
+      }
+    }
+    return false;
+  }
+
   void EraseLine(int yo) {
-    for (int y = yo; y < kBoardSize.y; y++) {
-      for (int x = 0; x < kBoardSize.x; x++) {
+    for (int y = yo; y < size.y; y++) {
+      for (int x = 0; x < size.x; x++) {
         SetAt({x, y}, GetAt({x, y + 1}));
       }
     }
   }
-  int Erase() {
+
+  int EraseLines() {
     int lines = 0;
-    for (int y = 0; y < kBoardSize.y;) {
-      int n = 0;
-      for (int x = 0; x < kBoardSize.x; x++) {
+    for (int y = 0; y < size.y;) {
+      int blocks = 0;
+      for (int x = 0; x < size.x; x++) {
         if (GetAt({x, y}) == Cell::None) {
           break;
         }
-        n++;
+        blocks++;
       }
-      if (n == kBoardSize.x) {
+      if (blocks == size.x) {
         EraseLine(y);
         lines++;
       } else {
@@ -114,90 +171,37 @@ struct Board : public ngBoard<Cell> {
     }
     return lines;
   }
-  void FixMino() {
-    for (int x = 0; x < kTetriminoXY.x; x++) {
-      for (int y = 0; y < kTetriminoXY.y; y++) {
-        int index = x + y * kTetriminoXY.x;
-        if (kTetrimino[minoType][index]) {
-          ivec2 pos = minoPos + MinoRotated(ivec2({x, y}));
-          SetAt(pos, Cell::Block);
-        }
-      }
-    }
-  }
 
-  bool MinoCollision() {
-    for (int x = 0; x < kTetriminoXY.x; x++) {
-      for (int y = 0; y < kTetriminoXY.y; y++) {
-        int index = x + y * kTetriminoXY.x;
-        if (kTetrimino[minoType][index]) {
-          ivec2 pos = minoPos + MinoRotated(ivec2({x, y}));
-          if (GetAt(pos) == Cell::Block) return true;
-        }
-      }
-    }
-    return false;
-  }
-
-  bool MoveMino(ivec2 dpos) {
-    ivec2 tmpPos = minoPos;
-    minoPos += dpos;
-    if (MinoCollision()) {
-      minoPos = tmpPos;
-      return false;
-    }
-    return true;
-  }
-
-  bool RotMino(int r) {
-    int tmpRot = minoRot;
-    minoRot = (minoRot + r + 4) % 4;
-    if (MinoCollision()) {
-      minoRot = tmpRot;
-      return false;
-    }
-    return true;
-  }
-
-  ivec2 MinoRotated(ivec2 pos) {
-    ivec2 offset = {1, 1};
-    pos -= offset;
-    switch (minoRot % 4) {
+  ivec2 Rotated(ivec2 pos, int rot) {
+    switch (rot % 4) {
       case 0:
-        return pos + offset;
+        return pos;
       case 1:
-        return ivec2{-pos.y, pos.x} + offset;
+        return {-pos.y, pos.x};
       case 2:
-        return ivec2{-pos.x, -pos.y} + offset;
+        return -pos;
       case 3:
-        return ivec2{pos.y, -pos.x} + offset;
-      default:
-        abort();
+        return {pos.y, -pos.x};
     }
   }
 
-  void Render(ngProcess& p) {
-    p.Push(translate(mat3(1.f), {-kWindowSize.x + 30, -kWindowSize.y + 30}));
-    // render board
-    for (int x = 0; x < kBoardSize.x; x++) {
-      for (int y = 0; y < kBoardSize.y; y++) {
-        RenderCell(p, {x, y}, GetAt({x, y}));
+  void Draw(ngProcess& p) {
+    for (int x = 0; x < size.x; x++) {
+      for (int y = 0; y < size.y; y++) {
+        DrawBlock(p, {x, y}, GetAt({x, y}));
       }
     }
 
-    // render mino
-    for (int x = 0; x < kTetriminoXY.x; x++) {
-      for (int y = 0; y < kTetriminoXY.y; y++) {
-        int index = x + y * kTetriminoXY.x;
-        if (kTetrimino[minoType][index]) {
-          ivec2 pos = minoPos + MinoRotated(ivec2({x, y}));
-          RenderCell(p, pos, Cell::Block);
+    for (int x = 0; x < kTetriminoPatternX; x++) {
+      for (int y = 0; y < kTetriminoPatternY; y++) {
+        if (kTetriminoPattern[minoPattern][y * kTetriminoPatternX + x]) {
+          DrawBlock(p, Rotated(ivec2{x, y}, minoRot) + minoPos,
+                    Cell(minoPattern));
         }
       }
     }
-    p.Pop();
   }
-};
+};  // struct Board
 
 int main(void) {
   auto proc = ngProcess::NewProcess();
@@ -213,59 +217,57 @@ int main(void) {
   if (!proc->Init()) {
     return 1;
   }
-
   Board b;
   b.Init(kBoardSize, Cell::None);
-  const float kTimeToDrop = 0.8;
-  float timeToDrop = kTimeToDrop;
-  int scores = 0;
-  bool drop = false;
-  bool gameover = false;
-
+  float dropTime = 1.f;
+  int score = 0;
+  bool gameOver = false;
   proc->Run([&](ngProcess& p, float dt) {
     // update
-    p.Clear(kWhite);
-
-    if (!gameover) {
-      if (p.IsJustPressed(KEY_LEFT)) {
-        b.MoveMino({-1, 0});
+    if (!gameOver) {
+      if (proc->IsJustPressed(KEY_LEFT)) {
+        b.Move({-1, 0});
       }
-      if (p.IsJustPressed(KEY_RIGHT)) {
-        b.MoveMino({1, 0});
+      if (proc->IsJustPressed(KEY_RIGHT)) {
+        b.Move({1, 0});
       }
-      if (p.IsJustPressed(KEY_1)) {
-        b.RotMino(1);
-      }
-      if (p.IsJustPressed(KEY_2)) {
-        b.RotMino(-1);
-      }
-      if (p.IsJustPressed(KEY_DOWN)) {
-        drop = true;
-      }
-
-      timeToDrop -= dt;
-      if (timeToDrop < 0 || drop) {
-        if (!b.MoveMino({0, -1})) {
-          b.FixMino();
-
-          int lines = b.Erase();
-          scores += lines;
-
-          if (!b.NextMino()) {
-            gameover = true;
-          }
-          drop = false;
+      if (proc->IsHold(KEY_DOWN)) {
+        if (b.Move({0, -1})) {
+          dropTime = 1.f;
         }
-        timeToDrop = kTimeToDrop;
+      }
+      if (proc->IsJustPressed(KEY_1)) {
+        b.Rot(1);
+      }
+      if (proc->IsJustPressed(KEY_2)) {
+        b.Rot(-1);
+      }
+
+      dropTime -= dt;
+      if (dropTime <= 0) {
+        dropTime = 1.f;
+        if (!b.Move({0, -1})) {
+          b.Fix();
+          score += b.EraseLines();
+          if (!b.NextMino()) {
+            gameOver = true;
+          }
+        }
       }
     }
 
-    b.Render(p);
-    p.Text(kBlack, {150, 200}, 30, fmt::format(u8"score:{0}", scores).c_str());
+    // drawing
+    p.Clear(kWhite);
+    b.Draw(p);
 
-    p.Text(kBlack, {0, 100}, 50, u8"ngTRIS");
-    p.Text(kBlack, {30, 0}, 30, u8"A or D key: move");
-    p.Text(kBlack, {30, -30}, 30, u8"Z or X key : rotate");
-    p.Text(kBlack, {30, -60}, 30, u8"S key: drop");
+    p.Text(kBlack, {100, 200}, 30.f, fmt::format("score:{0}", score).c_str());
+    p.Text(kBlack, {0, 100}, 50.f, u8"ngTRIS");
+    p.Text(kBlack, {50, 0}, 30.f, u8"a d key : move");
+    p.Text(kBlack, {50, -40}, 30.f, u8"z x key : rotate");
+    p.Text(kBlack, {50, -80}, 30.f, u8"s key : drop");
+
+    if (gameOver) {
+      p.Text(kBlack, {-kWindowSize.x, 0}, 100.f, u8"GAMEOVER");
+    }
   });
 }

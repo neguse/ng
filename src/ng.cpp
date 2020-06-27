@@ -626,6 +626,7 @@ void esMainLoop(void* arg) {
   auto* proc = reinterpret_cast<ngProcessImpl*>(arg);
   proc->Tick();
 }
+
 #endif
 
 void ngProcessImpl::Run(ngUpdater updater) {
@@ -690,4 +691,58 @@ void ngProcessImpl::Tick() {
 
 std::unique_ptr<ngProcess> ngProcess::NewProcess() {
   return std::make_unique<ngProcessImpl>();
+}
+
+ngRand::ngRand() { Seed(0xdeadbeef); }
+
+void ngRand::Seed(uint64_t seed) {
+  smix64_.x = seed;
+  xo_.s[0] = smix64_.next();
+  xo_.s[1] = smix64_.next();
+  xo_.s[2] = smix64_.next();
+  xo_.s[3] = smix64_.next();
+}
+
+uint64_t ngRand::UInt64() { return xo_.next(); }
+
+int ngRand::Int() { return static_cast<int>(UInt64()); }
+
+int ngRand::IntN(int n) {
+  uint64_t v = UInt64();
+  return v % n;
+}
+
+int ngRand::Int1D(ivec2 minmax) {
+  if (minmax.x == minmax.y) {
+    UInt64();
+    return minmax.x;
+  }
+  return IntN(abs(minmax.y - minmax.x)) + min(minmax.x, minmax.y);
+}
+
+ivec2 ngRand::Int2D(ivec2 min, ivec2 max) {
+  int v1 = Int1D({min.x, max.x});
+  int v2 = Int1D({min.y, max.y});
+  return {v1, v2};
+}
+
+float ngRand::Float() {
+  uint64_t v = UInt64();
+  return (v >> 11) * 0x1.0p-53;
+}
+
+float ngRand::FloatN(float n) { return n * Float(); }
+
+float ngRand::Float1D(vec2 minmax) {
+  if (abs(minmax.x - minmax.y) < FLT_EPSILON) {
+    UInt64();
+    return minmax.x;
+  }
+  return FloatN(abs(minmax.x - minmax.y)) + min(minmax.x, minmax.y);
+}
+
+vec2 ngRand::Float2D(vec2 min, vec2 max) {
+  float v1 = Float1D({min.x, max.x});
+  float v2 = Float1D({min.y, max.y});
+  return {v1, v2};
 }

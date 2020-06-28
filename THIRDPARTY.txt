@@ -294,7 +294,7 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
 As an exception, if, as a result of your compiling your source code, portions of this Software are embedded into a machine-executable object form of such source code, you may redistribute such embedded portions in such object form without including the above copyright and permission notices.
 ```
 
-# [Flexible and Economical UTF-8 Decoder]()
+# [Flexible and Economical UTF-8 Decoder](https://bjoern.hoehrmann.de/utf-8/decoder/dfa/)
 
 ```
 Copyright (c) 2008-2009 Bjoern Hoehrmann <bjoern@hoehrmann.de>
@@ -316,4 +316,16 @@ Noto fonts are open source. All Noto fonts are published under the SIL Open Font
 
 ```
 Noto fonts are open source. All Noto fonts are published under the SIL Open Font License, Version 1.1.
+```
+
+# [xoshiro256plusplus and splitmix64](http://prng.di.unimi.it)
+
+```
+Written in 2019 by David Blackman and Sebastiano Vigna (vigna@acm.org)
+
+To the extent possible under law, the author has dedicated all copyright
+and related and neighboring rights to this software to the public domain
+worldwide. This software is distributed without any warranty.
+
+See <http://creativecommons.org/publicdomain/zero/1.0/>.
 ```

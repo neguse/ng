@@ -1,0 +1,14 @@
+{
+    "$schema": "https://raw.githubusercontent.com/microsoft/vcpkg-tool/main/docs/vcpkg.schema.json",
+    "name": "ng",
+    "version": "0.1.0",
+    "builtin-baseline": "e69c9817d28e0ad37a79b5623c17c2b87df8939f",
+    "dependencies": [
+        "glm", 
+        "sdl2", 
+        "sdl2-image", 
+        "fmt", 
+        "gl3w", 
+        "freetype"
+    ]
+}

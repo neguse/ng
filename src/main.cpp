@@ -1,4 +1,4 @@
-#include "ng.h"
+﻿#include "ng.h"
 
 enum {
   KEY_UP,
